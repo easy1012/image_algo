@@ -46,16 +46,20 @@ def post_process_generated_images(imgs: Tensor) -> np.array:
     return (imgs * 255.0).detach().cpu().numpy().astype(np.uint8)
 
 
-def preprocess_img(dataset):
+def preprocess_img(dataset, size=128):
     transform = T.Compose([
         T.ToImage(),  # PIL/HF Image -> Tensor(tv_tensors.Image)
-        T.CenterCrop(128),
+        T.CenterCrop(size),
+        T.Resize((size, size)), # Ensure exact size output if crop is different or image is smaller
         T.ToDtype(torch.float32, scale=True),  # uint8 -> float32, [0,255]->[0,1]
         # (GAN이면 보통 아래 Normalize도 추가)
         # T.Normalize(mean=(0.5,)*3, std=(0.5,)*3),  # [0,1]->[-1,1]
     ])
 
     def transform_fn(ex):
+        # Handle grayscale images by converting to RGB if needed
+        # (CelebA is RGB but robust code helps)
+        # However, T.ToImage() handles PIL.
         ex["pixel_values"] = transform(ex["image"])
         return ex
 
