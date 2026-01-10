@@ -29,6 +29,9 @@ def update_average(model_tgt, model_src, beta):
 
 
 class EqualizedConv2d(Conv2d):
+    '''
+    nn.conv2d 말고, torch.Conv2d를 그대로 쓴다. Conv2d 방식이면서 weight에서 차이점을 보임
+    '''
     def __init__(
         self,
         in_channels,
@@ -54,7 +57,7 @@ class EqualizedConv2d(Conv2d):
         )
         # make sure that the self.weight and self.bias are initialized according to
         # random normal distribution
-        torch.nn.init.normal_(self.weight)
+        torch.nn.init.normal_(self.weight) #정규 분포로 초기화
         if bias:
             torch.nn.init.zeros_(self.bias)
 
@@ -75,6 +78,9 @@ class EqualizedConv2d(Conv2d):
 
 
 class EqualizedConvTranspose2d(ConvTranspose2d):
+    '''
+    위와 같은 방식이며, ConvTranspose2d 구현
+    '''
     def __init__(
         self,
         in_channels,
@@ -111,22 +117,23 @@ class EqualizedConvTranspose2d(ConvTranspose2d):
         self.scale = np.sqrt(2) / np.sqrt(fan_in)
 
     def forward(self, x: Tensor, output_size: Any = None) -> Tensor:
-        output_padding = self._output_padding(
-            input, output_size, self.stride, self.padding, self.kernel_size
-        )
+        # output_padding = self._output_padding(
+        #     input, output_size, self.stride, self.padding, self.kernel_size
+        # )
         return torch.conv_transpose2d(
             input=x,
             weight=self.weight * self.scale,  # scale the weight on runtime
             bias=self.bias,
             stride=self.stride,
             padding=self.padding,
-            output_padding=output_padding,
+            output_padding=self.output_padding,
             groups=self.groups,
             dilation=self.dilation,
         )
 
 
 class EqualizedLinear(Linear):
+
     def __init__(self, in_features, out_features, bias=True) -> None:
         super().__init__(in_features, out_features, bias)
 
@@ -168,6 +175,7 @@ class MinibatchStdDev(torch.nn.Module):
     Minibatch standard deviation layer for the discriminator
     Args:
         group_size: Size of each group into which the batch is split
+    미니배치 내 샘플 간 분산(표준편차)**을 계산해서 그 값을 추가 채널로 discriminator에 제공
     """
 
     def __init__(self, group_size: int = 4) -> None:

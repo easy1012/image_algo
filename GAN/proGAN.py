@@ -16,11 +16,13 @@ from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.utils import save_image
 
-from .utils.custom_layers import update_average
-from .utils.losses import GANLoss, WganGP
-from .utils.proGAN_DG import Discriminator, Generator
-from .utils.util_function import adjust_dynamic_range
-
+from utils.custom_layers import update_average
+from utils.losses import GANLoss, WganGP
+from utils.proGAN_DG import Discriminator, Generator
+from utils.util_function import adjust_dynamic_range
+from utils.util_function import get_data_loader,preprocess_img
+from datasets import load_dataset
+import torch.nn.functional as F
 
 class ProGAN:
     def __init__(
@@ -43,6 +45,8 @@ class ProGAN:
         self.latent_size = gen.latent_size
         self.device = device
 
+        self.dataset = self._make_dataset()
+        
         # if code is to be run on GPU, we can use DataParallel:
         if device == torch.device("cuda"):
             self.gen = DataParallel(self.gen)
@@ -62,6 +66,12 @@ class ProGAN:
         # counters to maintain generator and discriminator gradient overflows
         self.gen_overflow_count = 0
         self.dis_overflow_count = 0
+
+    def _make_dataset(self):
+        dataset = load_dataset('flwrlabs/celeba')
+        
+        return preprocess_img(dataset)['train']
+        
 
     def progressive_downsample_batch(self, real_batch, depth, alpha):
         """
@@ -129,6 +139,15 @@ class ProGAN:
 
         # generate a batch of samples
         fake_samples = self.gen(noise, depth, alpha).detach()
+        
+        if real_samples.shape[-2:] != fake_samples.shape[-2:]:
+            real_samples = F.interpolate(
+                real_samples,
+                size=fake_samples.shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
+        
         dis_loss = loss.dis_loss(
             self.dis, real_samples, fake_samples, depth, alpha, labels=labels
         )
@@ -260,7 +279,6 @@ class ProGAN:
 
     def train(
         self,
-        dataset: Dataset,
         epochs: List[int],
         batch_sizes: List[int],
         fade_in_percentages: List[int],
@@ -303,7 +321,7 @@ class ProGAN:
         Returns: None (Writes multiple files to disk)
         """
 
-        print(f"Loaded the dataset with: {len(dataset)} images ...")
+        print(f"Loaded the dataset with: {len(self.dataset)} images ...")
         assert (self.depth - 1) == len(
             batch_sizes
         ), "batch_sizes are not compatible with depth"
@@ -315,13 +333,13 @@ class ProGAN:
         gen_optim = torch.optim.Adam(
             params=self.gen.parameters(),
             lr=gen_learning_rate,
-            betas=(0, 0.99),
+            betas=(0.0, 0.99),
             eps=1e-8,
         )
         dis_optim = torch.optim.Adam(
             params=self.dis.parameters(),
             lr=dis_learning_rate,
-            betas=(0, 0.99),
+            betas=(0.0, 0.99),
             eps=1e-8,
         )
 
@@ -335,7 +353,7 @@ class ProGAN:
 
         # image saving mechanism
         with torch.no_grad():
-            dummy_data_loader = get_data_loader(dataset, num_samples, num_workers)
+            dummy_data_loader = get_data_loader(self.dataset, num_samples, num_workers)
             real_images_for_render = next(iter(dummy_data_loader))
             fixed_input = torch.randn(num_samples, self.latent_size).to(self.device)
             self.create_grid(
@@ -363,7 +381,7 @@ class ProGAN:
             print("Current resolution: %d x %d" % (current_res, current_res))
             depth_list_index = current_depth - 2
             current_batch_size = batch_sizes[depth_list_index]
-            data = get_data_loader(dataset, current_batch_size, num_workers)
+            data = get_data_loader(self.dataset, current_batch_size, num_workers)
             ticker = 1
             for epoch in range(1, epochs[depth_list_index] + 1):
                 start = timeit.default_timer()  # record time at the start of epoch

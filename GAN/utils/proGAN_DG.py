@@ -138,7 +138,7 @@ class Discriminator(nn.Module):
 
     def __init__(
         self,
-        depth: int = 7,
+        depth: int = 10,
         num_channels: int = 3,
         latent_size: int = 512,
         use_eql: bool = True,

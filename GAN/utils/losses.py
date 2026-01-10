@@ -6,6 +6,9 @@ from typing import Optional
 from .proGAN_DG import Discriminator
 
 class GANLoss:
+    '''
+    base GAN loss 상속해서 쓴다.
+    '''
     def dis_loss(
         self,
         discriminator: Discriminator,
@@ -54,10 +57,7 @@ class GANLoss:
     
 class WganGP(GANLoss):
     """
-    Wgan-GP loss function. The discriminator is required for computing the gradient
-    penalty.
-    Args:
-        drift: weight for the drift penalty
+    WGAN에서 나온 GAN 학습 불안정/mode collapse 방지용. discriminator를 EMD로 만들고, Lipschitz-1 조건 만족을 위해 gradient penalty라는 제약 조건을 준다.
     """
 
     def __init__(self, drift: float = 0.001) -> None:

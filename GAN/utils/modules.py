@@ -53,7 +53,7 @@ class GenInitialBlock(Module):
         return y
 
 
-class GenGeneralConvBlock(torch.nn.Module):
+class GenGeneralConvBlock(Module):
     """
     Module implementing a general convolutional block
     Args:
@@ -85,7 +85,7 @@ class GenGeneralConvBlock(torch.nn.Module):
         return y
 
 
-class DisFinalBlock(torch.nn.Module):
+class DisFinalBlock(Module):
     """
     Final block for the Discriminator
     Args:
