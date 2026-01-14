@@ -1,4 +1,23 @@
+import os
+import numpy as np
+import math
+from datasets import load_dataset
+import torchvision.transforms as transforms
+from torchvision.utils import save_image
 
+from torch.utils.data import DataLoader, Dataset
+from torchvision import datasets
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch
+import torch.autograd as autograd
+from PIL import Image
+import io
+
+import matplotlib.pyplot as plt
+# from utils.util_function import preprocess_img
 
 
 class pixel2pixel:
@@ -9,17 +28,17 @@ class pixel2pixel:
         
         self.criterion_GAN = torch.nn.MSELoss()
         self.criterion_pixelwise = torch.nn.L1Loss()
-        self.dataset = _make_dataset()
+        self.dataset = self._make_dataset()
         self.lambda_pixel = lambda_pixel
 
     def _make_dataset(self):
         data = load_dataset('huggan/facades')
-        dataset = preprocess_img(data)
+        dataset = self.preprocess_img(data)
         return dataset['train']
-    @staticmethod
-    def preprocess_img(dataset, size=256):
+
+    def preprocess_img(self,dataset, size=256):
         transform_ = transforms.Compose(
-            [transforms.Resize((img_h, img_w), Image.BICUBIC),
+            [transforms.Resize((size, size), Image.BICUBIC),
             transforms.ToTensor(),
             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
@@ -39,8 +58,8 @@ class pixel2pixel:
             dataset[split].set_transform(transform_fn)
 
         return dataset
-    @staticmethod
-    def collate_pixel_values(batch):
+
+    def collate_pixel_values(self,batch):
         # batch: List[dict], 각 dict에 'pixel_values'가 있음
         return {'a' : torch.stack([b["pixel_image_A"] for b in batch], dim=0), 'b' : torch.stack([b["pixel_image_B"] for b in batch], dim=0)}
 
@@ -49,14 +68,14 @@ class pixel2pixel:
         dataset: Dataset, batch_size: int, num_workers: int = 3
     ) -> DataLoader:
     
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=num_workers,
-        drop_last=True,
-        collate_fn=collate_pixel_values
-    )
+        return DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            drop_last=True,
+            collate_fn=self.collate_pixel_values
+        )
 
     def train(self, 
             batch_size,
@@ -66,7 +85,7 @@ class pixel2pixel:
             b1,
             b2 ):
 
-        dataloader = get_data_loader(self.dataset, batch_size)
+        dataloader = self.get_data_loader(self.dataset, batch_size)
         optimizer_G = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
         optimizer_D = torch.optim.Adam(self.dis.parameters(), lr=lr, betas=(b1, b2))
 
@@ -101,4 +120,4 @@ class pixel2pixel:
                 loss_D.backward()
                 optimizer_D.step()
 
-                batches_done = epoch * len(data_loader) + i
+                batches_done = epoch * len(dataloader) + i
