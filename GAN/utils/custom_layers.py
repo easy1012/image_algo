@@ -5,6 +5,7 @@ import numpy as np
 
 import torch
 from torch import Tensor
+import torch.nn as nn
 from torch.nn import Conv2d, ConvTranspose2d, Linear
 
 
@@ -259,3 +260,4 @@ class UNetUp(nn.Module):
 
         x = torch.cat([x, skip_input], 1)
         return x
+

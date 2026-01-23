@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 import torch
+import torch.nn as nn
 from torch import Tensor
 from torch.nn import DataParallel, Module
 from torch.nn.functional import avg_pool2d, interpolate
