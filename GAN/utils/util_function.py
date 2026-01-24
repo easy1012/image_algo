@@ -70,6 +70,48 @@ def preprocess_img(dataset, size=128):
 
     return dataset
 
+def stargan_preprocess_img(dataset, opt, size=128):
+    transform = T.Compose([
+                            T.ToImage(),
+                            T.RandomHorizontalFlip(),
+                            T.CenterCrop(opt.crop_size),
+                            T.Resize(opt.image_size),
+                            T.ToDtype(torch.float32, scale=True),
+                            T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+                            ])
+
+    def transform_fn(ex):
+        # Handle grayscale images by converting to RGB if needed
+        # (CelebA is RGB but robust code helps)
+        # However, T.ToImage() handles PIL.
+        ex["pixel_values"] = transform(ex["image"])
+
+        return ex
+
+    for split in dataset.keys():
+        dataset[split].set_transform(transform_fn)
+
+    return dataset
+
+def stargan_collate_pixel_values(batch,opt):
+    # batch: List[dict], 각 dict에 'pixel_values'가 있음
+    labels = torch.tensor([[int(b[attr]) for attr in opt.selected_attrs] for b in batch],dtype=torch.float32)
+    return torch.stack([b["pixel_values"] for b in batch], dim=0), labels
+
+def stargan_get_data_loader(
+    dataset: Dataset, batch_size: int, num_workers: int = 3
+) -> DataLoader:
+    
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        drop_last=True,
+        collate_fn=stargan_collate_pixel_values
+    )
+
+
 def collate_pixel_values(batch):
     # batch: List[dict], 각 dict에 'pixel_values'가 있음
     return torch.stack([b["pixel_values"] for b in batch], dim=0)
