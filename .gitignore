@@ -2,3 +2,4 @@ dataset/
 logger/
 stylegan_result/
 **/*.ipynb
+**/*.pt
